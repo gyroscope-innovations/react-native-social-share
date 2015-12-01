@@ -9,6 +9,8 @@
 #import "KDSocialShare.h"
 #import "RCTConvert.h"
 #import <Social/Social.h>
+#import <AssetsLibrary/AssetsLibrary.h>
+
 
 @implementation KDSocialShare
 
@@ -21,12 +23,12 @@ RCT_EXPORT_METHOD(tweet:(NSDictionary *)options
   if([SLComposeViewController isAvailableForServiceType:SLServiceTypeTwitter]) {
     NSString *serviceType = SLServiceTypeTwitter;
     SLComposeViewController *composeCtl = [SLComposeViewController composeViewControllerForServiceType:serviceType];
-    
+
     if (options[@"link"]){
       NSString *link = [RCTConvert NSString:options[@"link"]];
       [composeCtl addURL:[NSURL URLWithString:link]];
     }
-    
+
     if (options[@"image"]){
       [composeCtl addImage: [UIImage imageNamed: options[@"image"]]];
     } else if (options[@"imagelink"]){
@@ -34,12 +36,12 @@ RCT_EXPORT_METHOD(tweet:(NSDictionary *)options
       UIImage *image = [UIImage imageWithData:[NSData dataWithContentsOfURL:[NSURL URLWithString:imagelink]]];
       [composeCtl addImage:image];
     }
-    
+
     if (options[@"text"]){
       NSString *text = [RCTConvert NSString:options[@"text"]];
       [composeCtl setInitialText:text];
     }
-    
+
     [composeCtl setCompletionHandler:^(SLComposeViewControllerResult result) {
       if (result == SLComposeViewControllerResultDone) {
         // Sent
@@ -50,7 +52,7 @@ RCT_EXPORT_METHOD(tweet:(NSDictionary *)options
         callback(@[@"cancelled"]);
       }
     }];
-    
+
     UIViewController *ctrl = [[[[UIApplication sharedApplication] delegate] window] rootViewController];
     [ctrl presentViewController:composeCtl animated:YES completion: nil];
   }
@@ -65,38 +67,48 @@ RCT_EXPORT_METHOD(shareOnFacebook:(NSDictionary *)options
   if([SLComposeViewController isAvailableForServiceType:SLServiceTypeFacebook]) {
     NSString *serviceType = SLServiceTypeFacebook;
     SLComposeViewController *composeCtl = [SLComposeViewController composeViewControllerForServiceType:serviceType];
-    
-    if (options[@"link"]){
-      NSString *link = [RCTConvert NSString:options[@"link"]];
-      [composeCtl addURL:[NSURL URLWithString:link]];
-    }
 
-    if (options[@"image"]){
-      [composeCtl addImage: [UIImage imageNamed: options[@"image"]]];
-    } else if (options[@"imagelink"]){
-      NSString *imagelink = [RCTConvert NSString:options[@"imagelink"]];
-      UIImage *image = [UIImage imageWithData:[NSData dataWithContentsOfURL:[NSURL URLWithString:imagelink]]];
-      [composeCtl addImage:image];
-    }
-    
-    if (options[@"text"]){
-      NSString *text = [RCTConvert NSString:options[@"text"]];
-      [composeCtl setInitialText:text];
-    }
-    
-    [composeCtl setCompletionHandler:^(SLComposeViewControllerResult result) {
-      if (result == SLComposeViewControllerResultDone) {
-        // Sent
-        callback(@[@"success"]);
+    ALAssetsLibrary *library = [ALAssetsLibrary new];
+    __block UIImage *image;
+    [library assetForURL:[NSURL URLWithString:options[@"image"]] resultBlock:^(ALAsset *asset) {
+      if (options[@"link"]){
+        NSString *link = [RCTConvert NSString:options[@"link"]];
+        [composeCtl addURL:[NSURL URLWithString:link]];
       }
-      else if (result == SLComposeViewControllerResultCancelled){
-        // Cancelled
-        callback(@[@"cancelled"]);
+
+      if (options[@"image"]){
+        image = [UIImage imageWithCGImage:[[asset defaultRepresentation] fullScreenImage]];
+        [composeCtl addImage: image];
+      } else if (options[@"imagelink"]){
+        NSString *imagelink = [RCTConvert NSString:options[@"imagelink"]];
+        UIImage *image = [UIImage imageWithData:[NSData dataWithContentsOfURL:[NSURL URLWithString:imagelink]]];
+        [composeCtl addImage:image];
       }
+
+      if (options[@"text"]){
+        NSString *text = [RCTConvert NSString:options[@"text"]];
+        [composeCtl setInitialText:text];
+      }
+
+      [composeCtl setCompletionHandler:^(SLComposeViewControllerResult result) {
+        if (result == SLComposeViewControllerResultDone) {
+          // Sent
+          callback(@[@"success"]);
+        }
+        else if (result == SLComposeViewControllerResultCancelled){
+          // Cancelled
+          callback(@[@"cancelled"]);
+        }
+      }];
+
+      UIViewController *ctrl = [[[[UIApplication sharedApplication] delegate] window] rootViewController];
+      [ctrl presentViewController:composeCtl animated:YES completion: nil];
+
+    } failureBlock:^(NSError *error) {
+
     }];
-    
-    UIViewController *ctrl = [[[[UIApplication sharedApplication] delegate] window] rootViewController];
-    [ctrl presentViewController:composeCtl animated:YES completion: nil];
+
+
   }
   else{
     callback(@[@"not_available"]);
